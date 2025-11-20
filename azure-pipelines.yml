@@ -58,7 +58,6 @@ stages:
     # Terraform Init
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
-      terraformPath: '/usr/bin/terraform'
       inputs:
         provider: azurerm
         command: init
@@ -72,7 +71,6 @@ stages:
     # Terraform Validate
     - task: TerraformTaskV4@4
       displayName: 'Terraform Validate'
-      terraformPath: '/usr/bin/terraform'
       inputs:
         provider: azurerm
         command: validate
