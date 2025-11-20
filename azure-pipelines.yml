@@ -50,10 +50,10 @@ stages:
       displayName: 'Checkout Repository'
 
     # Install Terraform
-    - task: TerraformInstaller@1
-      displayName: 'Install Terraform'
-      inputs:
-        terraformVersion: $(terraformVersion)
+    # - task: TerraformInstaller@1
+    #   displayName: 'Install Terraform'
+    #   inputs:
+    #     terraformVersion: $(terraformVersion)
 
     # Terraform Init
     - task: TerraformTaskV4@4
