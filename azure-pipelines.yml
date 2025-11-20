@@ -61,6 +61,7 @@ stages:
       inputs:
         provider: azurerm
         command: init
+        terraformPath: '/usr/local/bin/terraform'
         workingDirectory: $(workingDirectory)
         backendServiceArm: $(azureServiceConnection)
         backendAzureRmResourceGroupName: $(tfBackendResourceGroup)
@@ -74,6 +75,7 @@ stages:
       inputs:
         provider: azurerm
         command: validate
+        terraformPath: '/usr/local/bin/terraform'
         workingDirectory: $(workingDirectory)
 
     # Terraform Plan via script
