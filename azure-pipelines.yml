@@ -25,133 +25,139 @@ variables:
   - name: tfBackendKey
     value: 'drift-detection.tfstate'
 
+# Self-hosted agent pool
 pool:
-  name: Pipeline Agent
-  demands: agent.os -equals Linux
+  name: 'Pipeline Agent'
+  demands:
+  - agent.os -equals Linux
 
 stages:
+
+# --------------------------------------------------
+# TERRAFORM DRIFT DETECTION
+# --------------------------------------------------
 - stage: DriftDetection
   displayName: Terraform Drift Detection
+
   jobs:
   - job: DetectDrift
-    displayName: Install, Init, Validate, & Plan
+    displayName: Install, Init, Validate & Plan
     pool:
-      vmImage: 'Pipeline Agent'
-    
+      name: 'Pipeline Agent'
+
     steps:
     - checkout: self
       displayName: 'Checkout Repository'
-    
-    # 1. INSTALL TERRAFORM (Only needs to run once per job)
+
+    # Install Terraform
     - task: TerraformInstaller@1
       displayName: 'Install Terraform'
       inputs:
-        terraformVersion: '$(terraformVersion)'
-    
-    # 2. INIT BACKEND (Only needs to run once per job)
+        terraformVersion: $(terraformVersion)
+
+    # Terraform Init
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
       inputs:
-        provider: 'azurerm'
-        command: 'init'
-        workingDirectory: '$(workingDirectory)'
-        backendServiceArm: '$(azureServiceConnection)'
-        backendAzureRmResourceGroupName: '$(tfBackendResourceGroup)'
-        backendAzureRmStorageAccountName: '$(tfBackendStorageAccount)'
-        backendAzureRmContainerName: '$(tfBackendContainer)'
-        backendAzureRmKey: '$(tfBackendKey)'
+        provider: azurerm
+        command: init
+        workingDirectory: $(workingDirectory)
+        backendServiceArm: $(azureServiceConnection)
+        backendAzureRmResourceGroupName: $(tfBackendResourceGroup)
+        backendAzureRmStorageAccountName: $(tfBackendStorageAccount)
+        backendAzureRmContainerName: $(tfBackendContainer)
+        backendAzureRmKey: $(tfBackendKey)
 
-    # 3. VALIDATE CONFIGURATION
+    # Terraform Validate
     - task: TerraformTaskV4@4
       displayName: 'Terraform Validate'
       inputs:
-        provider: 'azurerm'
-        command: 'validate'
-        workingDirectory: '$(workingDirectory)'
+        provider: azurerm
+        command: validate
+        workingDirectory: $(workingDirectory)
 
-    # 4. PLAN AND CAPTURE EXIT CODE
+    # Terraform Plan via script
     - task: Bash@3
+      name: AnalyzeExitCode
       displayName: 'Terraform Plan & Analyze Exit Code'
       inputs:
-        targetType: 'filePath' 
-        filePath: '$(workingDirectory)/drift_detection.sh' 
+        targetType: 'filePath'
+        filePath: '$(workingDirectory)/drift_detection.sh'
         workingDirectory: '$(workingDirectory)'
-      name: AnalyzeExitCode
       env:
         ARM_CLIENT_ID: $(servicePrincipalId)
         ARM_CLIENT_SECRET: $(servicePrincipalKey)
         ARM_TENANT_ID: $(tenantId)
         ARM_SUBSCRIPTION_ID: $(subscriptionId)
 
-    # 5. PUBLISH ARTIFACTS
+    # Publish tfplan
     - task: PublishBuildArtifacts@1
-      displayName: 'Publish Terraform Plan Artifact (tfplan)'
-      condition: succeededOrFailed() 
+      displayName: 'Publish Terraform Plan Artifact'
+      condition: succeededOrFailed()
       inputs:
         PathtoPublish: '$(workingDirectory)/tfplan'
         ArtifactName: 'terraform-drift-plan-$(Build.BuildId)'
         publishLocation: 'Container'
 
+    # Publish drift report if drift detected
     - task: PublishBuildArtifacts@1
-      displayName: 'Publish Drift Report (TXT)'
-      condition: eq(variables['AnalyzeExitCode.planExitCode'], '2')
+      displayName: 'Publish Drift Report'
+      condition: and(succeededOrFailed(), eq(variables['AnalyzeExitCode.planExitCode'], '2'))
       inputs:
         PathtoPublish: '$(workingDirectory)/drift-report.txt'
         ArtifactName: 'drift-report-$(Build.BuildId)'
         publishLocation: 'Container'
 
+
+# --------------------------------------------------
+# SLACK NOTIFICATION STAGE
+# --------------------------------------------------
 - stage: Notify
-  displayName: 💬 Send Notifications
+  displayName: "💬 Send Notifications"
   dependsOn: DriftDetection
-  condition: always() # Ensure notification runs regardless of drift detection outcome
+  condition: always()
+
   jobs:
   - job: SendSlackNotification
     displayName: Send Slack Alert
     pool:
-      vmImage: 'Hosted Agent'
-    
+      vmImage: ubuntu-latest
+
     variables:
-      # Retrieve the plan exit code from the preceding stage/job
       planExitCode: $[ stageDependencies.DriftDetection.DetectDrift.outputs['AnalyzeExitCode.planExitCode'] ]
-    
+
     steps:
     - task: Bash@3
-      displayName: 'Generate & Send Slack Notification'
+      displayName: 'Send Slack Drift Notification'
       inputs:
-        targetType: 'inline'
+        targetType: inline
         script: |
-          PLAN_CODE="$(planExitCode)"
-          echo "Terraform Plan Exit Code: $PLAN_CODE"
-          
+          EXIT_CODE="$(planExitCode)"
+
           PIPELINE_URL="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
-          
-          case "$PLAN_CODE" in
+          NOW=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          case "$EXIT_CODE" in
             0)
-              MESSAGE="✅ *Terraform Drift Check Passed*\n• No infrastructure drift detected"
               COLOR="good"
-              EMOJI=":white_check_mark:"
+              MESSAGE="✅ *No Drift Detected*\nEverything is up to date."
               ;;
             2)
-              MESSAGE="⚠️ *Terraform Drift Detected!*\n• Infrastructure changes found. Review the plan artifact."
               COLOR="warning"
-              EMOJI=":warning:"
+              MESSAGE="⚠️ *Terraform Drift Detected!*\nReview the Terraform plan."
               ;;
             1)
-              MESSAGE="❌ *Terraform Drift Check Failed*\n• Terraform plan encountered errors. Review pipeline logs."
               COLOR="danger"
-              EMOJI=":x:"
+              MESSAGE="❌ *Terraform Error*\nPlan failed. Check logs."
               ;;
             *)
-              MESSAGE="❓ *Terraform Drift Check - Unknown Status*\n• Exit Code: \`$PLAN_CODE\`"
               COLOR="#808080"
-              EMOJI=":question:"
+              MESSAGE="❓ *Unknown Exit Code:* \`$EXIT_CODE\`"
               ;;
           esac
-          
-          # Append common details
-          MESSAGE="$MESSAGE\n• Build: \`$(Build.BuildNumber)\`\n• Branch: \`$(Build.SourceBranchName)\`\n• Time: \`$(date -u +"%Y-%m-%d %H:%M:%S UTC")\`\n• <$PIPELINE_URL|View Pipeline Details>"
-          
-          # Send to Slack using the webhook URL from the variable group
+
+          MESSAGE="$MESSAGE\n\n• Build: \`$(Build.BuildNumber)\`\n• Branch: \`$(Build.SourceBranchName)\`\n• Time: \`$NOW\`\n• <$PIPELINE_URL|View Pipeline>"
+
           curl -X POST -H 'Content-type: application/json' \
             --data "{
               \"attachments\": [{
@@ -159,16 +165,8 @@ stages:
                 \"text\": \"$MESSAGE\",
                 \"footer\": \"Azure DevOps - Terraform Drift Detection\",
                 \"ts\": $(date +%s)
-              }],
-              \"icon_emoji\": \"$EMOJI\",
-              \"username\": \"Terraform Drift Bot\"
+              }]
             }" \
-            "$(SLACK_WEBHOOK_URL)"
-          
-          if [ $? -eq 0 ]; then
-            echo "✅ Slack notification sent successfully"
-          else
-            echo "❌ Failed to send Slack notification"
-            # Do not fail the notification job if Slack fails, unless critical
-            exit 0
-          fi
+            $SLACK_WEBHOOK_URL
+
+          echo "Slack notification sent."
