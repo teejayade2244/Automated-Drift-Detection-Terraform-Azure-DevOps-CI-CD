@@ -13,7 +13,7 @@ variables:
   - name: terraformVersion
     value: '1.5.0'
   - name: workingDirectory
-    value: '$(System.DefaultWorkingDirectory)/terraform'
+    value: '$(System.DefaultWorkingDirectory)'  # Changed to root directory
   - name: azureServiceConnection
     value: 'Azure-Resource-Manager' 
   - name: tfBackendResourceGroup
@@ -58,20 +58,6 @@ stages:
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
           az --version
 
-    # Verify environment and directory structure
-    - task: Bash@3
-      displayName: 'Verify Directory Structure'
-      inputs:
-        targetType: 'inline'
-        script: |
-          echo "Current directory: $(pwd)"
-          echo "Listing working directory:"
-          ls -la
-          echo "Checking for terraform directory:"
-          find . -name "terraform" -type d
-          echo "Creating terraform directory if it doesn't exist"
-          mkdir -p $(workingDirectory)
-
     # Verify Terraform is accessible
     - task: Bash@3
       displayName: 'Verify Terraform Installation'
@@ -83,56 +69,72 @@ stages:
           terraform version
           echo "Terraform is properly installed"
 
+    # Make drift_detection.sh executable
+    - task: Bash@3
+      displayName: 'Make Script Executable'
+      inputs:
+        targetType: 'inline'
+        script: |
+          chmod +x $(workingDirectory)/drift_detection.sh
+          ls -la $(workingDirectory)/drift_detection.sh
+
     # Terraform Init using environment variables
     - task: Bash@3
       displayName: 'Terraform Init'
+      env:
+        ARM_CLIENT_ID: $(servicePrincipalId)
+        ARM_CLIENT_SECRET: $(servicePrincipalKey)
+        ARM_TENANT_ID: $(tenantId)
+        ARM_SUBSCRIPTION_ID: $(subscriptionId)
       inputs:
         targetType: 'inline'
         script: |
           echo "Working directory: $(workingDirectory)"
           cd $(workingDirectory)
-          echo "Current directory after cd: $(pwd)"
+          echo "Current directory: $(pwd)"
+          echo "Listing files:"
+          ls -la
           echo "Initializing Terraform backend..."
           
-          # Use environment variables for authentication
           terraform init \
             -backend-config="storage_account_name=$(tfBackendStorageAccount)" \
             -backend-config="container_name=$(tfBackendContainer)" \
             -backend-config="key=$(tfBackendKey)" \
-            -backend-config="resource_group_name=$(tfBackendResourceGroup)" \
-            -backend-config="subscription_id=$ARM_SUBSCRIPTION_ID" \
-            -backend-config="tenant_id=$ARM_TENANT_ID" \
-            -backend-config="client_id=$ARM_CLIENT_ID" \
-            -backend-config="client_secret=$ARM_CLIENT_SECRET"
+            -backend-config="resource_group_name=$(tfBackendResourceGroup)"
           
           echo "Terraform init completed with exit code: $?"
 
     # Terraform Validate
     - task: Bash@3
       displayName: 'Terraform Validate'
+      env:
+        ARM_CLIENT_ID: $(servicePrincipalId)
+        ARM_CLIENT_SECRET: $(servicePrincipalKey)
+        ARM_TENANT_ID: $(tenantId)
+        ARM_SUBSCRIPTION_ID: $(subscriptionId)
       inputs:
         targetType: 'inline'
         script: |
           cd $(workingDirectory)
           echo "Validating Terraform configuration..."
           terraform validate
-          echo "Validation completed with exit code: $?"
+          VALIDATE_EXIT=$?
+          echo "Validation completed with exit code: $VALIDATE_EXIT"
+          exit $VALIDATE_EXIT
 
     # Terraform Plan via script
     - task: Bash@3
       name: AnalyzeExitCode
       displayName: 'Terraform Plan & Analyze Exit Code'
-      inputs:
-        script: |
-          cd $(workingDirectory)
-        targetType: 'filePath'
-        filePath: '$(workingDirectory)/drift_detection.sh'
-        workingDirectory: '$(workingDirectory)'
       env:
         ARM_CLIENT_ID: $(servicePrincipalId)
         ARM_CLIENT_SECRET: $(servicePrincipalKey)
         ARM_TENANT_ID: $(tenantId)
         ARM_SUBSCRIPTION_ID: $(subscriptionId)
+      inputs:
+        targetType: 'filePath'
+        filePath: '$(workingDirectory)/drift_detection.sh'
+        workingDirectory: '$(workingDirectory)'
 
     # Publish tfplan
     - task: PublishBuildArtifacts@1
