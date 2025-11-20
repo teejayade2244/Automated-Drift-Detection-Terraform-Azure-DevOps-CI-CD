@@ -123,6 +123,8 @@ stages:
       name: AnalyzeExitCode
       displayName: 'Terraform Plan & Analyze Exit Code'
       inputs:
+        script: |
+          cd $(workingDirectory)
         targetType: 'filePath'
         filePath: '$(workingDirectory)/drift_detection.sh'
         workingDirectory: '$(workingDirectory)'
