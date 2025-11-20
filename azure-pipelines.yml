@@ -58,10 +58,10 @@ stages:
     # Terraform Init
     - task: TerraformTaskV4@4
       displayName: 'Terraform Init'
+      terraformPath: '/usr/bin/terraform'
       inputs:
         provider: azurerm
         command: init
-        terraformPath: '/usr/bin/terraform'
         workingDirectory: $(workingDirectory)
         backendServiceArm: $(azureServiceConnection)
         backendAzureRmResourceGroupName: $(tfBackendResourceGroup)
@@ -72,10 +72,10 @@ stages:
     # Terraform Validate
     - task: TerraformTaskV4@4
       displayName: 'Terraform Validate'
+      terraformPath: '/usr/bin/terraform'
       inputs:
         provider: azurerm
         command: validate
-        terraformPath: '/usr/bin/terraform'
         workingDirectory: $(workingDirectory)
 
     # Terraform Plan via script
