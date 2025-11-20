@@ -15,7 +15,7 @@ variables:
   - name: workingDirectory
     value: '$(System.DefaultWorkingDirectory)/terraform'
   - name: azureServiceConnection
-    value: 'Azure Resource Manager' 
+    value: 'Azure-Resource-Manager' 
   - name: tfBackendResourceGroup
     value: 'Temitope'
   - name: tfBackendStorageAccount
