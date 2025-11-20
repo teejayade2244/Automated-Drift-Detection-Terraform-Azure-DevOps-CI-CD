@@ -25,6 +25,10 @@ variables:
   - name: tfBackendKey
     value: 'drift-detection.tfstate'
 
+pool:
+  name: Pipeline Agent
+  demands: agent.os -equals Linux
+
 stages:
 - stage: DriftDetection
   displayName: Terraform Drift Detection
@@ -32,7 +36,7 @@ stages:
   - job: DetectDrift
     displayName: Install, Init, Validate, & Plan
     pool:
-      vmImage: 'Hosted Agent'
+      vmImage: 'Pipeline Agent'
     
     steps:
     - checkout: self
