@@ -49,32 +49,49 @@ stages:
     - checkout: self
       displayName: 'Checkout Repository'
 
-    # Install Terraform
-    # - task: TerraformInstaller@1
-    #   displayName: 'Install Terraform'
-    #   inputs:
-    #     terraformVersion: $(terraformVersion)
+    # Verify Terraform is accessible
+    - task: Bash@3
+      displayName: 'Verify Terraform Installation'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Checking Terraform installation..."
+          which terraform
+          terraform version
+          echo "Terraform is properly installed"
 
-    # Terraform Init
-    - task: TerraformTaskV4@4
+    # Terraform Init using script (replacing TerraformTaskV4)
+    - task: Bash@3
       displayName: 'Terraform Init'
       inputs:
-        provider: azurerm
-        command: init
-        workingDirectory: $(workingDirectory)
-        backendServiceArm: $(azureServiceConnection)
-        backendAzureRmResourceGroupName: $(tfBackendResourceGroup)
-        backendAzureRmStorageAccountName: $(tfBackendStorageAccount)
-        backendAzureRmContainerName: $(tfBackendContainer)
-        backendAzureRmKey: $(tfBackendKey)
+        targetType: 'inline'
+        script: |
+          cd $(workingDirectory)
+          echo "Initializing Terraform backend..."
+          
+          terraform init \
+            -backend-config="storage_account_name=$(tfBackendStorageAccount)" \
+            -backend-config="container_name=$(tfBackendContainer)" \
+            -backend-config="key=$(tfBackendKey)" \
+            -backend-config="resource_group_name=$(tfBackendResourceGroup)" \
+            -backend-config="subscription_id=$(subscriptionId)" \
+            -backend-config="tenant_id=$(tenantId)" \
+            -backend-config="client_id=$(servicePrincipalId)" \
+            -backend-config="client_secret=$(servicePrincipalKey)" \
+            -backend-config="use_oidc=false"
+          
+          echo "Terraform init completed successfully"
 
-    # Terraform Validate
-    - task: TerraformTaskV4@4
+    # Terraform Validate using script (replacing TerraformTaskV4)
+    - task: Bash@3
       displayName: 'Terraform Validate'
       inputs:
-        provider: azurerm
-        command: validate
-        workingDirectory: $(workingDirectory)
+        targetType: 'inline'
+        script: |
+          cd $(workingDirectory)
+          echo "Validating Terraform configuration..."
+          terraform validate
+          echo "Validation completed"
 
     # Terraform Plan via script
     - task: Bash@3
@@ -167,6 +184,6 @@ stages:
                 \"ts\": $(date +%s)
               }]
             }" \
-            $SLACK_WEBHOOK_URL
+            "$(SLACK_WEBHOOK_URL)"
 
           echo "Slack notification sent."
