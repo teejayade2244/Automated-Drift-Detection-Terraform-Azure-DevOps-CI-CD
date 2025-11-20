@@ -121,7 +121,7 @@ stages:
   - job: SendSlackNotification
     displayName: Send Slack Alert
     pool:
-      vmImage: ubuntu-latest
+      name: 'Pipeline Agent'
 
     variables:
       planExitCode: $[ stageDependencies.DriftDetection.DetectDrift.outputs['AnalyzeExitCode.planExitCode'] ]
