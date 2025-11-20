@@ -10,10 +10,11 @@ schedules:
 
 variables:
   - group: SlackSecrets  
+  - group: AzureCredentials  # Add this variable group with Azure credentials
   - name: terraformVersion
     value: '1.5.0'
   - name: workingDirectory
-    value: '$(System.DefaultWorkingDirectory)'  # Changed to root directory
+    value: '$(System.DefaultWorkingDirectory)'
   - name: azureServiceConnection
     value: 'Azure-Resource-Manager' 
   - name: tfBackendResourceGroup
@@ -69,6 +70,18 @@ stages:
           terraform version
           echo "Terraform is properly installed"
 
+    # Debug: Check if variables are set
+    - task: Bash@3
+      displayName: 'Debug: Check Variables'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "Checking if Azure variables are set..."
+          echo "ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)"
+          echo "ARM_TENANT_ID: $(ARM_TENANT_ID)"
+          echo "ARM_CLIENT_ID: $(ARM_CLIENT_ID)"
+          # Don't print the secret for security
+
     # Make drift_detection.sh executable
     - task: Bash@3
       displayName: 'Make Script Executable'
@@ -78,23 +91,17 @@ stages:
           chmod +x $(workingDirectory)/drift_detection.sh
           ls -la $(workingDirectory)/drift_detection.sh
 
-    # Terraform Init using environment variables
+    # Terraform Init using Azure CLI authentication (simpler approach)
     - task: Bash@3
       displayName: 'Terraform Init'
-      env:
-        ARM_CLIENT_ID: $(servicePrincipalId)
-        ARM_CLIENT_SECRET: $(servicePrincipalKey)
-        ARM_TENANT_ID: $(tenantId)
-        ARM_SUBSCRIPTION_ID: $(subscriptionId)
       inputs:
         targetType: 'inline'
         script: |
-          echo "Working directory: $(workingDirectory)"
           cd $(workingDirectory)
-          echo "Current directory: $(pwd)"
-          echo "Listing files:"
-          ls -la
           echo "Initializing Terraform backend..."
+          
+          # Use Azure CLI for authentication instead of service principal
+          az login --identity  # Use managed identity if available
           
           terraform init \
             -backend-config="storage_account_name=$(tfBackendStorageAccount)" \
@@ -107,11 +114,6 @@ stages:
     # Terraform Validate
     - task: Bash@3
       displayName: 'Terraform Validate'
-      env:
-        ARM_CLIENT_ID: $(servicePrincipalId)
-        ARM_CLIENT_SECRET: $(servicePrincipalKey)
-        ARM_TENANT_ID: $(tenantId)
-        ARM_SUBSCRIPTION_ID: $(subscriptionId)
       inputs:
         targetType: 'inline'
         script: |
@@ -126,11 +128,6 @@ stages:
     - task: Bash@3
       name: AnalyzeExitCode
       displayName: 'Terraform Plan & Analyze Exit Code'
-      env:
-        ARM_CLIENT_ID: $(servicePrincipalId)
-        ARM_CLIENT_SECRET: $(servicePrincipalKey)
-        ARM_TENANT_ID: $(tenantId)
-        ARM_SUBSCRIPTION_ID: $(subscriptionId)
       inputs:
         targetType: 'filePath'
         filePath: '$(workingDirectory)/drift_detection.sh'
