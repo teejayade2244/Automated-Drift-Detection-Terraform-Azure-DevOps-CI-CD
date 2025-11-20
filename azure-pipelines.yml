@@ -32,7 +32,7 @@ stages:
   - job: DetectDrift
     displayName: Install, Init, Validate, & Plan
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'Hosted Agent'
     
     steps:
     - checkout: self
@@ -104,7 +104,7 @@ stages:
   - job: SendSlackNotification
     displayName: Send Slack Alert
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: 'Hosted Agent'
     
     variables:
       # Retrieve the plan exit code from the preceding stage/job
