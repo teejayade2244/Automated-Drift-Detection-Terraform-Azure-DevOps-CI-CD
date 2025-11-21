@@ -4,7 +4,7 @@
 # The 'set +e' command prevents the script from exiting immediately if 'terraform plan' 
 # returns a non-zero exit code (0 for no change, 2 for drift, 1 for error).
 set +e
-terraform plan -detailed-exitcode -input=false -out=tfplan -lock-timeout=300
+terraform plan -detailed-exitcode -input=false -out=tfplan -lock-timeout=300s
 PLAN_EXIT_CODE=$?
 set -e # Restore default behavior
 
