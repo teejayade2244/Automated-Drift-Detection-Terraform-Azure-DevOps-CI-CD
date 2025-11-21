@@ -75,8 +75,8 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          chmod +x $(workingDirectory)/detection.sh
-          ls -la $(workingDirectory)/detection.sh
+          chmod +x $(workingDirectory)/drift_detection.sh
+          ls -la $(workingDirectory)/drift_detection.sh
 
     # Terraform Init using Azure Service Connection
     - task: AzureCLI@2
