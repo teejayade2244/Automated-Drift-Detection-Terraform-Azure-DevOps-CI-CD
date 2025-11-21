@@ -69,14 +69,14 @@ stages:
           terraform version
           echo "Terraform is properly installed"
 
-    # Make drift_detection.sh executable
+    # Make detection.sh executable (using your actual script name)
     - task: Bash@3
       displayName: 'Make Script Executable'
       inputs:
         targetType: 'inline'
         script: |
-          chmod +x $(workingDirectory)/drift_detection.sh
-          ls -la $(workingDirectory)/drift_detection.sh
+          chmod +x $(workingDirectory)/detection.sh
+          ls -la $(workingDirectory)/detection.sh
 
     # Terraform Init using Azure Service Connection
     - task: AzureCLI@2
@@ -112,7 +112,7 @@ stages:
           echo "Validation completed with exit code: $VALIDATE_EXIT"
           exit $VALIDATE_EXIT
 
-    # Terraform Plan using Azure Service Connection
+    # Terraform Plan using your detection.sh script
     - task: AzureCLI@2
       name: AnalyzeExitCode
       displayName: 'Terraform Plan & Analyze Exit Code'
@@ -122,29 +122,8 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           cd $(workingDirectory)
-          echo "Starting Terraform drift detection..."
-          
-          # Terraform plan with detailed exit code
-          terraform plan -out=tfplan -detailed-exitcode
-          
-          # Capture exit code
-          PLAN_EXIT_CODE=$?
-          echo "##vso[task.setvariable variable=planExitCode;isOutput=true]$PLAN_EXIT_CODE"
-          
-          # Handle different exit codes
-          case $PLAN_EXIT_CODE in
-            0)
-              echo "No changes. Infrastructure is up-to-date."
-              ;;
-            2)
-              echo "Drift detected! Creating drift report..."
-              terraform show -no-color tfplan > drift-report.txt
-              ;;
-            *)
-              echo "Terraform plan failed with exit code: $PLAN_EXIT_CODE"
-              exit $PLAN_EXIT_CODE
-              ;;
-          esac
+          echo "Running drift detection script..."
+          ./drift_detection.sh
 
     # Publish tfplan
     - task: PublishBuildArtifacts@1
