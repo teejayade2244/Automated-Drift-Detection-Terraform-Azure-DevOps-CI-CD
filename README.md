@@ -32,6 +32,9 @@ This repository contains an Azure DevOps pipeline that:
    - Notifications are sent (Slack or other configured channels) with a summary and link to full artifact/log.
 8. Pipeline completes and stores artifacts for auditing.
 
+<img width="1919" height="870" alt="Screenshot 2025-11-21 160209" src="https://github.com/user-attachments/assets/9283d90d-2ba7-4f28-a254-95993c946250" />
+<img width="1919" height="634" alt="Screenshot 2025-11-21 160248" src="https://github.com/user-attachments/assets/60588324-0a8d-400f-b33b-cd0c7ffcd6ea" />
+
 --------------------------------------------------------------------------------
 **Key pipeline stages (as implemented)**
 - Install, Init, Validate: install Azure CLI/Terraform, run `terraform init` and `terraform validate`.
@@ -40,6 +43,8 @@ This repository contains an Azure DevOps pipeline that:
 - Publish Drift Report: create and publish a short drift-report.txt summarizing what changed.
 - Send Notifications: post alerts to Slack (or other) including run link and summary.
 
+<img width="1904" height="929" alt="Screenshot 2025-11-25 130435" src="https://github.com/user-attachments/assets/bcd4dc18-abc9-4301-a03f-95d38ff66a81" />
+
 --------------------------------------------------------------------------------
 **Terraform behavior & exit codes**
 - terraform plan returns:
@@ -47,6 +52,9 @@ This repository contains an Azure DevOps pipeline that:
   - 2 when there are changes (drift or pending changes).
   - Other non-zero codes indicate errors.
 - The pipeline uses these exit codes to gate notifications and artifact publishing.
+
+<img width="1906" height="863" alt="Screenshot 2025-11-21 160345" src="https://github.com/user-attachments/assets/1c59ceb4-e42a-4e7c-8942-f9f86f21639e" />
+<img width="1915" height="865" alt="Screenshot 2025-11-25 125401" src="https://github.com/user-attachments/assets/52de7fa9-b21e-4538-8b88-65a67228ccd5" />
 
 --------------------------------------------------------------------------------
 **What the repository contains (important files)**
