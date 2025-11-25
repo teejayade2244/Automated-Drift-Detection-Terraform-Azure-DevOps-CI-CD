@@ -9,6 +9,8 @@ This repository contains an Azure DevOps pipeline that:
 - Publishes the plan and report as pipeline artifacts, and
 - Sends notifications (e.g., Slack) when drift is detected.
 
+<img width="1919" height="439" alt="Screenshot 2025-11-20 201359" src="https://github.com/user-attachments/assets/f2683829-d9d7-4eea-a518-6d3ddefb7342" />
+
 --------------------------------------------------------------------------------
 **Why this matters**
 - Configuration drift occurs when manual changes or out-of-band automation change deployed infrastructure so it no longer matches IaC definitions.
